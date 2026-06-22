@@ -1,0 +1,1043 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Apriori Counter — Market Basket Analysis</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%232E1F17'/%3E%3Cpath d='M6 9h2.5l3.5 10h9l3-7H10' stroke='%23E4D2AC' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round' fill='none'/%3E%3Ccircle cx='13' cy='22' r='1.4' fill='%23C1672B'/%3E%3Ccircle cx='20' cy='22' r='1.4' fill='%23C1672B'/%3E%3Cline x1='14' y1='13' x2='14' y2='18' stroke='%23E4D2AC' stroke-width='1.2' stroke-linecap='round'/%3E%3Cline x1='17' y1='12' x2='17' y2='18' stroke='%23E4D2AC' stroke-width='1.2' stroke-linecap='round'/%3E%3Cline x1='20' y1='13' x2='20' y2='18' stroke='%23E4D2AC' stroke-width='1.2' stroke-linecap='round'/%3E%3C/svg%3E">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,900;1,700&family=Special+Elite&family=Space+Mono:wght@400;700&family=Inter:wght@300;400;500;600;700&display=swap');
+
+  :root{
+    --espresso:#2E1F17;
+    --coffee:#4A3728;
+    --kraft:#EAD9B5;
+    --kraft-dark:#D3BD90;
+    --receipt:#FEFAF2;
+    --cinnamon:#C1672B;
+    --cinnamon-dark:#A1531F;
+    --matcha:#7C8B5E;
+    --stamp:#A4332B;
+    --ink:#231E1A;
+    --ink-soft:rgba(35,30,26,0.6);
+    --ink-lighter:rgba(35,30,26,0.38);
+    --line:rgba(35,30,26,0.15);
+    --display: 'Playfair Display', 'Special Elite', Georgia, serif;
+    --display-alt: 'Special Elite', 'Courier New', monospace;
+    --body: 'Inter', -apple-system, sans-serif;
+    --mono: 'Space Mono', 'Courier New', monospace;
+    --radius: 4px;
+    --radius-lg: 8px;
+    --shadow-card: 0 1px 0 var(--line), 0 4px 6px -2px rgba(43,36,32,0.06), 0 18px 36px -18px rgba(43,36,32,0.26);
+    --cinnamon-glow: rgba(193,103,43,0.14);
+    --pad-panel: 42px 38px;
+  }
+
+  *{ box-sizing:border-box; }
+  html{ scroll-behavior:smooth; }
+  body{
+    margin:0;
+    background:var(--kraft);
+    color:var(--ink);
+    font-family:var(--body);
+    font-size:15px;
+    line-height:1.7;
+    -webkit-font-smoothing:antialiased;
+    -moz-osx-font-smoothing:grayscale;
+  }
+  img,svg{ display:block; max-width:100%; }
+  a{ color:inherit; }
+  button{ font-family:inherit; cursor:pointer; }
+  :focus-visible{ outline:2px solid var(--cinnamon); outline-offset:2px; }
+
+  /* subtle paper texture */
+  .texture{
+    background-image:
+      radial-gradient(rgba(43,36,32,0.035) 1px, transparent 1px);
+    background-size: 6px 6px;
+  }
+
+  /* ---------- Layout helpers ---------- */
+  .wrap{ max-width:1100px; margin:0 auto; padding:0 28px; }
+  .eyebrow{
+    font-family:var(--mono);
+    font-size:11px;
+    letter-spacing:.22em;
+    text-transform:uppercase;
+    color:var(--cinnamon);
+    font-weight:700;
+  }
+
+  /* ---------- Navbar ---------- */
+  .navbar{
+    position:fixed; top:0; left:0; right:0; z-index:50;
+    background:rgba(254,250,242,0.96);
+    backdrop-filter:blur(12px);
+    -webkit-backdrop-filter:blur(12px);
+    border-bottom:1px solid var(--line);
+    height:68px;
+    box-shadow:0 1px 0 var(--line), 0 4px 16px -8px rgba(43,36,32,0.08);
+  }
+  .navbar .wrap{
+    height:100%;
+    display:flex; align-items:center; justify-content:space-between;
+  }
+
+  .logo{
+    font-family:var(--display);
+    font-size:17px;
+    font-weight:700;
+    letter-spacing:-.01em;
+    color:var(--coffee);
+    text-decoration:none;
+    display:flex; align-items:center; gap:8px;
+  }
+  .logo .dot{ width:7px; height:7px; border-radius:50%; background:var(--cinnamon); }
+  .nav-links{
+    display:flex; gap:28px; list-style:none; margin:0; padding:0;
+    font-family:var(--body); font-size:13.5px; font-weight:500; color:var(--coffee);
+  }
+  .nav-links a{ text-decoration:none; opacity:.7; transition:opacity .2s, color .2s; letter-spacing:.01em; }
+  .nav-links a:hover{ opacity:1; color:var(--cinnamon); }
+  .nav-toggle{ display:none; }
+
+  @media (max-width:640px){
+    .nav-links.open{
+      display:flex; flex-direction:column; position:absolute;
+      top:64px; right:0; background:var(--receipt); padding:14px 24px;
+      gap:12px; border-bottom:1px dashed var(--line); box-shadow:var(--shadow-card);
+    }
+  }
+
+  /* ---------- Hero ---------- */
+  .hero{
+    position:relative;
+    background:var(--espresso);
+    color:var(--receipt);
+    padding:150px 0 90px;
+    overflow:hidden;
+  }
+  .hero::before{
+    content:'';
+    position:absolute; inset:0;
+    background-image: radial-gradient(rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size:5px 5px;
+    pointer-events:none;
+  }
+  .hero .wrap{ position:relative; z-index:2; max-width:760px; }
+  .hero .eyebrow{ color:rgba(193,103,43,0.9); }
+  .hero h1{
+    font-family:var(--display);
+    font-size:clamp(38px, 5.8vw, 62px);
+    font-weight:900;
+    line-height:1.08;
+    margin:20px 0 22px;
+    letter-spacing:-0.02em;
+    animation: riseIn .7s ease both;
+  }
+  .hero h1 em{ color:var(--cinnamon); font-style:normal; }
+  .hero p.lead{
+    font-size:18px;
+    font-weight:300;
+    color:rgba(254,250,242,0.78);
+    max-width:540px;
+    line-height:1.72;
+    margin:0 0 36px;
+    animation: riseIn .7s .1s ease both;
+  }
+  .cta-row{ display:flex; gap:14px; flex-wrap:wrap; animation: riseIn .7s .2s ease both; }
+  .btn{
+    font-family:var(--body);
+    font-size:13.5px;
+    font-weight:600;
+    letter-spacing:.02em;
+    padding:13px 24px;
+    border-radius:var(--radius);
+    border:1px solid transparent;
+    transition: transform .18s ease, box-shadow .18s ease, background .18s ease;
+    display:inline-flex; align-items:center; gap:8px;
+  }
+  .btn-primary{
+    background:var(--cinnamon); color:var(--receipt);
+    box-shadow:0 2px 0 var(--cinnamon-dark);
+  }
+  .btn-primary:hover{ transform:translateY(-1px); box-shadow:0 4px 0 var(--cinnamon-dark); }
+  .btn-outline{
+    background:transparent; color:var(--coffee); border-color:var(--coffee);
+  }
+  .btn-outline:hover{ background:var(--coffee); color:var(--receipt); }
+  .btn-outline.on-dark{ color:var(--receipt); border-color:rgba(251,247,239,0.4); }
+  .btn-outline.on-dark:hover{ background:rgba(251,247,239,0.1); color:var(--receipt); }
+  .btn-sm{ padding:7px 14px; font-size:11.5px; }
+  .btn[disabled]{ opacity:.45; cursor:not-allowed; transform:none !important; box-shadow:none !important; }
+
+  /* torn paper edge under hero */
+  .torn{
+    position:absolute; left:0; right:0; bottom:-1px; height:26px;
+    background:var(--kraft);
+    clip-path: polygon(
+      0% 100%, 0% 35%, 3% 70%, 6% 20%, 9% 65%, 12% 15%, 15% 60%, 18% 25%,
+      21% 70%, 24% 10%, 27% 55%, 30% 20%, 33% 65%, 36% 30%, 39% 70%, 42% 15%,
+      45% 60%, 48% 25%, 51% 70%, 54% 10%, 57% 55%, 60% 20%, 63% 65%, 66% 30%,
+      69% 70%, 72% 15%, 75% 60%, 78% 25%, 81% 70%, 84% 10%, 87% 55%, 90% 20%,
+      93% 65%, 96% 15%, 100% 60%, 100% 100%
+    );
+  }
+
+  @keyframes riseIn{
+    from{ opacity:0; transform:translateY(10px); }
+    to{ opacity:1; transform:translateY(0); }
+  }
+  @keyframes fadeIn{ from{opacity:0;} to{opacity:1;} }
+  @media (prefers-reduced-motion: reduce){
+    *{ animation:none !important; transition:none !important; scroll-behavior:auto !important; }
+  }
+
+  /* ---------- Main ---------- */
+  main{ background:var(--kraft); }
+  section{ padding:72px 0; }
+  .section-head{ max-width:620px; margin:0 0 40px; }
+  .section-head h2{
+    font-family:var(--display); font-size:28px; font-weight:700; color:var(--coffee); margin:10px 0 12px; letter-spacing:-.01em; line-height:1.25;
+  }
+  .section-head p{ color:var(--ink-soft); margin:0; font-size:15.5px; line-height:1.68; }
+
+  /* ---------- Upload card ---------- */
+  .panel{
+    background:var(--receipt);
+    border-radius:var(--radius-lg);
+    box-shadow:var(--shadow-card);
+    border:1px solid rgba(35,30,26,0.06);
+  }
+  .upload-grid{ display:grid; grid-template-columns: 1.1fr .9fr; gap:0; overflow:hidden; border-radius:var(--radius-lg); }
+  .dropzone{
+    padding:var(--pad-panel);
+    border-right:1px dashed var(--line);
+    text-align:center;
+    transition: background .15s ease;
+  }
+  .dropzone.drag{ background:var(--kraft); }
+  .dropzone .icon{ font-size:30px; margin-bottom:10px; }
+  .dropzone h3{ font-family:var(--display); font-size:17px; font-weight:700; color:var(--coffee); margin:0 0 8px; letter-spacing:-.01em; }
+  .dropzone p{ color:var(--ink-soft); font-size:14.5px; line-height:1.6; margin:0 0 20px; }
+  .file-name{
+    font-family:var(--mono); font-size:12px; color:var(--matcha); margin-top:14px; min-height:16px;
+  }
+  #fileInput{ display:none; }
+  .or-divider{ font-family:var(--mono); font-size:11px; color:var(--ink-soft); margin:14px 0; letter-spacing:.1em; }
+
+  .params{ padding:var(--pad-panel); display:flex; flex-direction:column; gap:18px; }
+  .params h3{ font-family:var(--display); font-size:17px; font-weight:700; color:var(--coffee); margin:0 0 6px; letter-spacing:-.01em; }
+  .param-row{ display:flex; flex-direction:column; gap:6px; }
+  .param-row label{ display:flex; justify-content:space-between; font-size:13px; font-weight:500; color:var(--ink-soft); }
+  .param-row label span.val{ font-family:var(--mono); color:var(--coffee); font-weight:700; }
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:3px; background:var(--line); border-radius:2px; outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
+    background:var(--cinnamon); cursor:pointer; border:2px solid var(--receipt); box-shadow:0 0 0 1px var(--cinnamon);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:14px; height:14px; border-radius:50%; background:var(--cinnamon); border:2px solid var(--receipt);
+  }
+
+  /* ---------- Stats / receipt totals ---------- */
+  .stats-receipt{
+    background:var(--receipt);
+    border-radius:var(--radius);
+    padding:26px 30px;
+    box-shadow:var(--shadow-card);
+    font-family:var(--mono);
+    max-width:520px;
+  }
+  .stats-receipt .r-title{
+    font-family:var(--display-alt); text-align:center; font-size:14px; color:var(--coffee);
+    letter-spacing:.10em; margin-bottom:4px; font-weight:400;
+  }
+  .stats-receipt .r-sub{
+    text-align:center; font-size:11.5px; color:var(--ink-lighter); margin-bottom:20px; letter-spacing:.06em;
+  }
+  .stat-line{
+    display:flex; align-items:baseline; gap:8px; font-size:14px; padding:9px 0;
+    border-bottom:1px dotted var(--line);
+  }
+  .stat-line:last-child{ border-bottom:none; }
+  .stat-line .label{ color:var(--ink-soft); white-space:nowrap; }
+  .stat-line .leader{ flex:1; border-bottom:1px dotted var(--line); transform:translateY(-3px); }
+  .stat-line .value{ font-weight:700; color:var(--coffee); white-space:nowrap; font-size:15px; }
+
+  /* ---------- Search + filters ---------- */
+  .toolbar{
+    display:flex; align-items:center; justify-content:space-between; gap:20px; flex-wrap:wrap;
+    margin-bottom:26px;
+  }
+  .search-wrap{ position:relative; max-width:340px; flex:1; min-width:220px; }
+  .search-wrap svg{ position:absolute; left:0; top:50%; transform:translateY(-50%); width:16px; height:16px; opacity:.55; }
+  .search-wrap input{
+    width:100%; border:none; border-bottom:2px solid rgba(74,55,40,0.2); background:transparent;
+    font-family:var(--body); font-size:15px; padding:9px 0 9px 26px; color:var(--ink);
+  }
+  .search-wrap input::placeholder{ color:var(--ink-soft); }
+  .search-wrap input:focus{ outline:none; border-bottom-color:var(--cinnamon); border-bottom-width:2px; }
+
+  .filters{ display:flex; gap:10px; flex-wrap:wrap; }
+  .chip{
+    font-family:var(--body); font-size:12.5px; font-weight:600; letter-spacing:.02em;
+    padding:8px 18px; border-radius:20px; border:1px solid rgba(74,55,40,0.3);
+    background:var(--receipt); color:var(--coffee);
+    transition: background .15s, color .15s, border-color .15s;
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .chip:nth-child(1){ transform:rotate(-1.2deg); }
+  .chip:nth-child(2){ transform:rotate(0.8deg); }
+  .chip:nth-child(3){ transform:rotate(-0.6deg); }
+  .chip:hover{ background:rgba(193,103,43,0.12); border-color:var(--cinnamon); color:var(--cinnamon-dark); }
+  .chip.active{ background:var(--cinnamon); color:var(--receipt); border-color:var(--cinnamon); }
+  .chip.active::before{ content:'●'; font-size:8px; }
+
+  /* ---------- Ticket grid ---------- */
+  .ticket-grid{
+    display:grid; grid-template-columns:repeat(3, 1fr); gap:28px;
+  }
+  .ticket{
+    position:relative;
+    background:var(--receipt);
+    box-shadow:var(--shadow-card);
+    animation: riseIn .45s ease both;
+  }
+  .perf{
+    height:11px; width:100%;
+    background-image: radial-gradient(circle at center, var(--kraft) 4.2px, transparent 4.3px);
+    background-size:14px 14px; background-repeat:repeat-x; background-position: 4px center;
+  }
+  .ticket-body{ padding:22px 22px 6px; }
+  .ticket-head{ display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:14px; }
+  .ticket-no{ font-family:var(--mono); font-size:10.5px; color:var(--ink-lighter); letter-spacing:.06em; }
+  .fav-btn{
+    background:none; border:none; font-size:15px; color:var(--line); padding:0; line-height:1;
+    transition: color .15s, transform .15s;
+  }
+  .fav-btn.active{ color:var(--stamp); transform:scale(1.15); }
+
+  .rule-line{ font-family:var(--display); font-size:15.5px; font-weight:700; color:var(--coffee); line-height:1.45; margin-bottom:6px; letter-spacing:-.01em; }
+  .rule-line .arrow{ color:var(--cinnamon); margin:0 6px; }
+  .rule-sub{ font-size:12.5px; color:var(--ink-soft); margin-bottom:16px; font-style:italic; letter-spacing:.01em; }
+
+  .divider{ border-top:1px dashed var(--line); margin:0 -22px 14px; }
+
+  .metric-row{ display:flex; justify-content:space-between; margin-bottom:14px; }
+  .metric{ text-align:center; flex:1; }
+  .metric .m-val{ font-family:var(--mono); font-weight:700; font-size:16px; color:var(--coffee); }
+  .metric .m-lab{ font-family:var(--mono); font-size:9px; letter-spacing:.12em; color:var(--ink-lighter); text-transform:uppercase; margin-top:2px; }
+
+  .barcode{
+    height:26px; margin:0 -22px 0;
+    background-image: repeating-linear-gradient(90deg,
+      var(--ink) 0px, var(--ink) 2px, transparent 2px, transparent 5px,
+      var(--ink) 5px, var(--ink) 6px, transparent 6px, transparent 10px,
+      var(--ink) 10px, var(--ink) 13px, transparent 13px, transparent 16px,
+      var(--ink) 16px, var(--ink) 17px, transparent 17px, transparent 22px);
+    opacity:.78;
+  }
+
+  .stamp{
+    position:absolute; top:58%; right:18px;
+    border:2px solid var(--stamp); color:var(--stamp);
+    font-family:var(--display); font-size:11px; letter-spacing:.06em;
+    padding:5px 10px; border-radius:4px;
+    transform:rotate(-13deg);
+    opacity:0; mix-blend-mode:multiply;
+    animation: stampIn .35s .25s ease forwards;
+  }
+  @keyframes stampIn{
+    from{ opacity:0; transform:rotate(-13deg) scale(1.5); }
+    to{ opacity:.82; transform:rotate(-13deg) scale(1); }
+  }
+
+  /* ---------- Empty state ---------- */
+  .empty{
+    text-align:center; padding:70px 20px; color:var(--ink-soft);
+  }
+  .empty .icon{ font-size:34px; margin-bottom:14px; opacity:.7; }
+  .empty h3{ font-family:var(--display); font-weight:700; color:var(--coffee); font-size:20px; margin:0 0 10px; letter-spacing:-.01em; }
+  .empty p{ font-size:15px; line-height:1.65; max-width:360px; margin:0 auto; color:var(--ink-soft); }
+
+  .loading-row{ display:flex; align-items:center; gap:12px; justify-content:center; padding:70px 0; color:var(--ink-soft); font-family:var(--mono); font-size:13px; letter-spacing:.05em; }
+  .spinner{ width:14px; height:14px; border:2px solid var(--line); border-top-color:var(--cinnamon); border-radius:50%; animation:spin .7s linear infinite; }
+  @keyframes spin{ to{ transform:rotate(360deg); } }
+
+  /* ---------- Footer ---------- */
+  footer{
+    background:var(--espresso); color:rgba(254,250,242,0.55);
+    padding:40px 0; font-family:var(--mono); font-size:11.5px; letter-spacing:.04em;
+  }
+  footer .wrap{ display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; }
+  footer .tag{ color:var(--cinnamon); }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width:880px){
+    .upload-grid{ grid-template-columns:1fr; }
+    .dropzone{ border-right:none; border-bottom:1px dashed var(--line); }
+    .ticket-grid{ grid-template-columns:repeat(2,1fr); }
+  }
+  @media (max-width:640px){
+    .nav-links{ display:none; }
+    .nav-toggle{ display:inline-block; }
+    .ticket-grid{ grid-template-columns:1fr; }
+    .hero{ padding:130px 0 80px; }
+    .toolbar{ flex-direction:column; align-items:stretch; }
+    .filters{ justify-content:flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="navbar">
+  <div class="wrap">
+    <a href="#top" class="logo"><span class="dot"></span>The Apriori Counter</a>
+    <ul class="nav-links">
+      <li><a href="#brew">Brew</a></li>
+      <li><a href="#ledger">Ledger</a></li>
+      <li><a href="#rules">Rules</a></li>
+    </ul>
+    <button class="btn btn-outline btn-sm nav-toggle" id="navToggle">Menu</button>
+  </div>
+</nav>
+
+<header class="hero" id="top">
+  <div class="wrap">
+    <div class="eyebrow">Market Basket Analysis · No. 0192</div>
+    <h1>What gets ordered<br><em>together</em>, stays together.</h1>
+    <p class="lead">Upload a transaction ledger and the counter runs the Apriori algorithm right
+      here in your browser — tallying supports, confidences, and lifts the same way the back-office
+      notebook does, only printed out as proper receipts.</p>
+    <div class="cta-row">
+      <button class="btn btn-primary" id="ctaUpload">Upload a ledger ↑</button>
+      <button class="btn btn-outline on-dark" id="ctaSample">Try the sample till</button>
+    </div>
+  </div>
+  <div class="torn"></div>
+</header>
+
+<main>
+  <section id="brew" class="texture">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Step 01 — Load the till</div>
+        <h2>Feed it a ledger</h2>
+        <p>Drop a CSV where each row is one order. Any column named “Addons” (comma-separated)
+          is split into individual items automatically — same as the notebook logic.</p>
+      </div>
+
+      <div class="panel">
+        <div class="upload-grid">
+          <div class="dropzone" id="dropzone">
+            <div class="icon">🧾</div>
+            <h3>Drop your CSV here</h3>
+            <p>or browse the till for a file</p>
+            <button class="btn btn-primary" id="browseBtn">Browse files</button>
+            <div class="or-divider">— or —</div>
+            <button class="btn btn-outline" id="sampleBtn">Use the sample coffee-shop till</button>
+            <input type="file" id="fileInput" accept=".csv">
+            <div class="file-name" id="fileName"></div>
+          </div>
+          <div class="params">
+            <h3>Brewing strength</h3>
+            <div class="param-row">
+              <label>Min. support <span class="val" id="supVal">0.02</span></label>
+              <input type="range" id="supRange" min="0.01" max="0.30" step="0.01" value="0.02">
+            </div>
+            <div class="param-row">
+              <label>Min. confidence <span class="val" id="confVal">0.30</span></label>
+              <input type="range" id="confRange" min="0.10" max="0.90" step="0.05" value="0.30">
+            </div>
+            <div class="param-row">
+              <label>Min. lift <span class="val" id="liftVal">1.00</span></label>
+              <input type="range" id="liftRange" min="1.00" max="3.00" step="0.10" value="1.00">
+            </div>
+            <button class="btn btn-primary" id="runBtn" disabled>Brew the rules →</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="ledger">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Step 02 — Today's totals</div>
+        <h2>Counted at the register</h2>
+      </div>
+      <div id="statsArea">
+        <div class="stats-receipt">
+          <div class="r-title">REGISTER SUMMARY</div>
+          <div class="r-sub">awaiting a ledger…</div>
+          <div class="stat-line"><span class="label">Transactions</span><span class="leader"></span><span class="value">—</span></div>
+          <div class="stat-line"><span class="label">Unique items</span><span class="leader"></span><span class="value">—</span></div>
+          <div class="stat-line"><span class="label">Rules brewed</span><span class="leader"></span><span class="value">—</span></div>
+          <div class="stat-line"><span class="label">Strongest lift</span><span class="leader"></span><span class="value">—</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="rules" class="texture">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Step 03 — Read the slips</div>
+        <h2>Association rules</h2>
+        <p>Each slip is one rule: order the items on top, and the items below tend to follow.
+          Sorted by lift — how much more likely the pairing is than chance.</p>
+      </div>
+
+      <div class="toolbar">
+        <div class="search-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input type="text" id="searchInput" placeholder="Search an item, e.g. “Oat Milk”">
+        </div>
+        <div class="filters" id="sortFilters">
+          <button class="chip active" data-sort="lift">Sort by lift</button>
+          <button class="chip" data-sort="confidence">Sort by confidence</button>
+          <button class="chip" data-sort="support">Sort by support</button>
+        </div>
+      </div>
+
+      <div id="rulesArea">
+        <div class="empty">
+          <div class="icon">☕</div>
+          <h3>No rules brewed yet</h3>
+          <p>Upload a ledger and press “Brew the rules” to print the first batch of receipts.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span>© 2026 The Apriori Counter — printed locally, no cloud till.</span>
+    <span class="tag">est. via Apriori algorithm</span>
+  </div>
+</footer>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ============ Apriori engine ============ */
+  function getNonEmptyProperSubsets(arr){
+    const subsets = []; const n = arr.length;
+    for (let mask=1; mask < (1<<n)-1; mask++){
+      const subset = [];
+      for (let i=0;i<n;i++){ if (mask & (1<<i)) subset.push(arr[i]); }
+      subsets.push(subset);
+    }
+    return subsets;
+  }
+
+  function runApriori(transactions, minSupport, minConfidence, minLift, maxItemsetSize){
+    maxItemsetSize = maxItemsetSize || 3;
+    const n = transactions.length;
+    const txSets = transactions.map(t => new Set(t));
+
+    function support(itemset){
+      let count = 0;
+      for (const s of txSets){ if (itemset.every(it => s.has(it))) count++; }
+      return count / n;
+    }
+
+    const itemCounts = new Map();
+    transactions.forEach(t => {
+      new Set(t).forEach(it => itemCounts.set(it, (itemCounts.get(it)||0)+1));
+    });
+
+    let currentLevel = [];
+    itemCounts.forEach((count, item) => {
+      const s = count / n;
+      if (s >= minSupport) currentLevel.push({ items:[item], support:s });
+    });
+
+    let allFrequent = [...currentLevel];
+    let k = 2;
+    while (currentLevel.length > 0 && k <= maxItemsetSize){
+      const candidatesMap = new Map();
+      for (let i=0;i<currentLevel.length;i++){
+        for (let j=i+1;j<currentLevel.length;j++){
+          const union = new Set([...currentLevel[i].items, ...currentLevel[j].items]);
+          if (union.size === k){
+            const cand = Array.from(union).sort();
+            const key = cand.join('|');
+            if (!candidatesMap.has(key)) candidatesMap.set(key, cand);
+          }
+        }
+      }
+      const nextLevel = [];
+      candidatesMap.forEach(cand => {
+        const s = support(cand);
+        if (s >= minSupport) nextLevel.push({ items:cand, support:s });
+      });
+      allFrequent.push(...nextLevel);
+      currentLevel = nextLevel;
+      k++;
+    }
+
+    const rules = [];
+    allFrequent.filter(f => f.items.length >= 2).forEach(f => {
+      const items = f.items;
+      getNonEmptyProperSubsets(items).forEach(antecedent => {
+        const consequent = items.filter(it => !antecedent.includes(it));
+        const anteSupport = support(antecedent);
+        const consSupport = support(consequent);
+        const confidence = f.support / anteSupport;
+        const lift = confidence / consSupport;
+        if (confidence >= minConfidence && lift >= minLift){
+          rules.push({ antecedent, consequent, support:f.support, confidence, lift });
+        }
+      });
+    });
+
+    rules.sort((a,b) => b.lift - a.lift);
+    return { frequentItemsets: allFrequent, rules };
+  }
+
+  /* ============ CSV parsing ============ */
+  function parseCSV(text){
+    const rows = []; let row = []; let field = ''; let inQuotes = false;
+    for (let i=0;i<text.length;i++){
+      const c = text[i];
+      if (inQuotes){
+        if (c === '"'){
+          if (text[i+1] === '"'){ field += '"'; i++; } else { inQuotes = false; }
+        } else field += c;
+      } else {
+        if (c === '"') inQuotes = true;
+        else if (c === ','){ row.push(field); field=''; }
+        else if (c === '\n' || c === '\r'){
+          if (c === '\r' && text[i+1] === '\n') i++;
+          row.push(field); field='';
+          if (row.some(v => v.trim() !== '')) rows.push(row);
+          row = [];
+        } else field += c;
+      }
+    }
+    if (field !== '' || row.length){ row.push(field); if (row.some(v => v.trim() !== '')) rows.push(row); }
+    return rows;
+  }
+
+  function buildTransactions(csvText){
+    const rows = parseCSV(csvText);
+    if (rows.length < 2) return { transactions: [], headers: [] };
+    const headers = rows[0].map(h => h.trim());
+    const transactions = [];
+    for (let r=1; r<rows.length; r++){
+      const items = [];
+      headers.forEach((col, idx) => {
+        const raw = rows[r][idx];
+        if (raw !== undefined && raw !== null && String(raw).trim() !== ''){
+          if (col.toLowerCase().includes('addon')){
+            String(raw).split(',').forEach(p => { const t = p.trim(); if (t) items.push(t); });
+          } else {
+            items.push(String(raw).trim());
+          }
+        }
+      });
+      if (items.length) transactions.push(items);
+    }
+    return { transactions, headers };
+  }
+
+  /* ============ Sample till ============ */
+  const SAMPLE_CSV = `Drinks,Customizations,Foods,Addons
+Caramel,Switch to Oat Milk,,
+Mocha Chip,Switch to Oat Milk,,
+Café Latte,Go Extreme!,Waffles,Blueberries
+Moroccan Mint,Swicth to Soy Milk,Beef Tapa,
+Espresso,Switch to Oat Milk,Classic French Toast,Hash Brown
+Spanish Latte,,,
+Ginseng Peppermint,,Classic French Toast,Blueberries
+Jasmin Dragon Phoenix Pearl,Switch to Oat Milk,,
+Sunrise,Go Extreme!,Breakfast Skillet,
+Appricot Ceylon,,Pizza Pockets,
+Appricot Ceylon,,Pizza Pockets,
+Cold Brew,Switch to Oat Milk,,
+Sunrise,,,
+Vanilla Latte,Switch to Oat Milk,Breakfast Skillet,Eggs Your Way
+Genmaicha Green,Switch to Oat Milk,,
+Hot Vanilla,,,
+Sunrise,Go Extreme!,Breakfast Skillet,
+Caramel Machiato,Chocolate Covered Espresso Beans,Grilled Cheese,
+Caramel Cold Brew,Affogato,Bacon Cheese Burger,
+Matcha,Go Extreme!,Ham and Cheese,
+Café Latte,,Steak Chimichurri,Bacon and Butter
+Moroccan Mint,,Grilled Cheese,Mixed Fruit Cup
+Cappaccino,,,
+Sunrise,,,
+Vanilla Latte,Affogato,,
+Double Chocolate,,,
+Café Latte,,Steak Chimichurri,Bacon and Butter
+Hot Double Chocolate w/ Marshmellow,,,
+Caramel Cold Brew,Switch to Oat Milk,,
+Vanilla Latte,,Classic French Toast,Mixed Fruit Cup
+Jasmin Dragon Phoenix Pearl,,Ham and Cheese,
+Mocha Latte,Affogato,Pancakes,Blueberries
+Pure Double Chocolate,Switch to Oat Milk,Classic French Toast,
+Double Chocolate,Go Extreme!,Waffles,
+Hot Vanilla,Switch to Oat Milk,Classic French Toast,
+Mocha Chip,Switch to Oat Milk,,
+Americano,Switch to Oat Milk,,
+Caramel,Go Extreme!,Bacon Cheese Burger,Hash Brown
+Cold Brew Latte,Go Extreme!,Mac and Cheese,Bacon and Butter
+Caramel,Go Extreme!,Bacon Cheese Burger,Hash Brown
+Genmaicha Green,,,
+African Sunrise,,Eggs Benedict,
+Pure Double Chocolate,Switch to Oat Milk,Classic French Toast,
+Caramel Cold Brew,Affogato,Bacon Cheese Burger,
+Ginseng Peppermint,Swicth to Soy Milk,,
+Americano,Affogato,,
+Pure Double Chocolate,,,
+Mocha Latte,Go Extreme!,Ham and Cheese,Hash Brown
+Cold Brew,,Breakfast Skillet,Cup of Soup
+Mocha Chip,,,
+Sunrise,Affogato,Asian Chicken Salad,Eggs Your Way
+Genmaicha Green,,,
+Lemon Chamomile,,Pizza Pockets,Mixed Fruit Cup
+Lemon Chamomile,Swicth to Soy Milk,,
+Caramel,Switch to Oat Milk,,
+Cappaccino,,,
+Americano,Switch to Oat Milk,,
+Moroccan Mint,Swicth to Soy Milk,Beef Tapa,
+Spanish Latte,,,
+Double Chocolate,,,
+Espresso,Chocolate Covered Espresso Beans,,
+Cappaccino,,,
+Ginseng Peppermint,,Classic French Toast,Blueberries
+Pure Vanilla,,Waffles,Bacon and Butter
+Cold Brew Latte,,,
+Cold Brew,Affogato,Steak Chimichurri,
+Espresso,,Waffles,Blueberries
+Mango,,Waffles,Bacon and Butter
+Mocha Chip,Switch to Oat Milk,,
+Matcha,,Pancakes,Blueberries
+Caramel Machiato,Chocolate Covered Espresso Beans,Grilled Cheese,
+Cappaccino,Go Extreme!,Bacon Cheese Burger,
+Appricot Ceylon,Switch to Oat Milk,Asian Chicken Salad,Eggs Your Way
+Spanish Latte,Swicth to Soy Milk,Eggs Benedict,Sour Dough Bread
+Cappaccino,Affogato,Asian Chicken Salad,Sour Dough Bread
+Hot Vanilla,Switch to Oat Milk,Classic French Toast,
+African Sunrise,,Eggs Benedict,
+Vanilla Latte,Go Extreme!,,
+Hot Vanilla,Switch to Oat Milk,Classic French Toast,
+Cold Brew,Affogato,Steak Chimichurri,
+Vanilla Latte,Switch to Soy Milk,Eggs Benedict,Bacon and Butter
+Vanilla Latte,Affogato,,
+Café Latte,Go Extreme!,Waffles,Blueberries
+Matcha,Go Extreme!,Ham and Cheese,
+Pure Double Chocolate,,,
+Caramel,Switch to Oat Milk,,
+Americano,Chocolate Covered Espresso Beans,Steak Chimichurri,
+Caramel Cold Brew,,Ham and Cheese,
+Appricot Ceylon,,Pizza Pockets,
+Moroccan Mint,Swicth to Soy Milk,Beef Tapa,
+Espresso,Chocolate Covered Espresso Beans,,
+Mocha Latte,Chocolate Covered Espresso Beans,Pizza Pockets,Mixed Fruit Cup
+Mocha Latte,,Breakfast Skillet,
+Mocha Latte,,Breakfast Skillet,
+Appricot Ceylon,Swicth to Soy Milk,,
+Pure Double Chocolate,Chocolate Covered Espresso Beans,Classic French Toast,
+Genmaicha Green,,,
+Espresso,Affogato,,
+Vanilla Latte,,Classic French Toast,Mixed Fruit Cup
+Double Chocolate,Go Extreme!,Waffles,
+Jasmin Dragon Phoenix Pearl,,Ham and Cheese,
+Espresso,Chocolate Covered Espresso Beans,,
+Spanish Latte,,,
+Mocha Latte,,Breakfast Skillet,
+Cappaccino,Affogato,Asian Chicken Salad,Sour Dough Bread
+Mocha Latte,,Breakfast Skillet,
+Vanilla Latte,,Classic French Toast,Mixed Fruit Cup
+Mango,,Waffles,Bacon and Butter
+Americano,Switch to Oat Milk,,
+Sunrise,,,
+Café Latte,,Steak Chimichurri,Bacon and Butter
+Mocha Latte,Affogato,Pancakes,Blueberries
+Lemon Chamomile,Swicth to Soy Milk,,
+Jasmin Dragon Phoenix Pearl,Swicth to Soy Milk,Classic French Toast,Blueberries
+Sunrise,Go Extreme!,Breakfast Skillet,
+Jasmin Dragon Phoenix Pearl,Switch to Oat Milk,,
+Mocha Chip,Chocolate Covered Espresso Beans,,
+Cold Brew,,Breakfast Skillet,Cup of Soup
+Mocha Latte,Chocolate Covered Espresso Beans,Pizza Pockets,Mixed Fruit Cup
+Americano,Affogato,,
+Cold Brew Latte,Chocolate Covered Espresso Beans,Ham and Cheese,
+Cold Brew Latte,Go Extreme!,Mac and Cheese,Bacon and Butter
+Spanish Latte,Swicth to Soy Milk,Eggs Benedict,Sour Dough Bread
+Sunrise,Affogato,Asian Chicken Salad,Eggs Your Way
+Vanilla Latte,Go Extreme!,,
+Mango,,Waffles,Bacon and Butter
+Mocha Latte,Go Extreme!,Ham and Cheese,Hash Brown
+Sunrise,Affogato,Asian Chicken Salad,Eggs Your Way
+Jasmin Dragon Phoenix Pearl,Swicth to Soy Milk,Classic French Toast,Blueberries
+Cold Brew Latte,Chocolate Covered Espresso Beans,Ham and Cheese,
+Appricot Ceylon,Switch to Oat Milk,Asian Chicken Salad,Eggs Your Way
+Espresso,,Waffles,Blueberries
+Americano,Affogato,,
+English Breakfast,Swicth to Soy Milk,,
+English Breakfast,,Breakfast Skillet,
+Jasmin Dragon Phoenix Pearl,,Ham and Cheese,
+Espresso,Switch to Oat Milk,Classic French Toast,Hash Brown
+Moroccan Mint,,Grilled Cheese,Mixed Fruit Cup
+Cold Brew Latte,Switch to Soy Milk,,
+Vanilla Latte,Switch to Oat Milk,Breakfast Skillet,Eggs Your Way
+Appricot Ceylon,,Pizza Pockets,
+Vanilla Latte,Switch to Soy Milk,Eggs Benedict,Bacon and Butter
+Mocha Latte,Affogato,Pancakes,Blueberries
+Pure Vanilla,,Waffles,Bacon and Butter
+Matcha,,Pancakes,Blueberries
+Mocha Chip,,,
+Hot Vanilla,,,
+Caramel,,Waffles,Mixed Fruit Cup
+Hot Double Chocolate w/ Marshmellow,Chocolate Covered Espresso Beans,Waffles,Blueberries
+Mocha Latte,Go Extreme!,Ham and Cheese,Hash Brown
+Caramel Cold Brew,,Ham and Cheese,
+Cappaccino,Go Extreme!,Bacon Cheese Burger,
+Matcha,,Pancakes,Blueberries
+Double Chocolate,,,
+Pure Vanilla,,Waffles,Bacon and Butter
+Lemon Chamomile,,Pizza Pockets,Mixed Fruit Cup
+Caramel Machiato,Chocolate Covered Espresso Beans,Grilled Cheese,
+Genmaicha Green,Switch to Oat Milk,,
+Cold Brew Latte,,,
+Appricot Ceylon,Switch to Oat Milk,Asian Chicken Salad,Eggs Your Way
+Caramel Cold Brew,Switch to Oat Milk,,
+English Breakfast,,Breakfast Skillet,
+Americano,Chocolate Covered Espresso Beans,Steak Chimichurri,
+Americano,Affogato,,
+Cold Brew Latte,Switch to Soy Milk,,
+Mocha Chip,Chocolate Covered Espresso Beans,,
+Ginseng Peppermint,Swicth to Soy Milk,,
+Cold Brew,Switch to Oat Milk,,
+Vanilla Latte,,Classic French Toast,Mixed Fruit Cup
+Jasmin Dragon Phoenix Pearl,,Ham and Cheese,
+Moroccan Mint,,Grilled Cheese,Mixed Fruit Cup
+Lemon Chamomile,,Pizza Pockets,Mixed Fruit Cup
+Espresso,Chocolate Covered Espresso Beans,,
+Espresso,Affogato,,
+Caramel,,Waffles,Mixed Fruit Cup
+English Breakfast,Swicth to Soy Milk,,
+Moroccan Mint,,Grilled Cheese,Mixed Fruit Cup
+Mocha Latte,Affogato,Pancakes,Blueberries
+Mocha Chip,Chocolate Covered Espresso Beans,,
+Hot Vanilla,,,
+Caramel,,Waffles,Mixed Fruit Cup
+Sunrise,,,
+Espresso,,Waffles,Blueberries
+Pure Double Chocolate,Chocolate Covered Espresso Beans,Classic French Toast,
+Lemon Chamomile,,Pizza Pockets,Mixed Fruit Cup
+Double Chocolate,Go Extreme!,Waffles,
+Jasmin Dragon Phoenix Pearl,Switch to Oat Milk,,
+Lemon Chamomile,Swicth to Soy Milk,,
+Appricot Ceylon,Swicth to Soy Milk,,
+Vanilla Latte,Switch to Soy Milk,Eggs Benedict,Bacon and Butter
+Cappaccino,Affogato,Asian Chicken Salad,Sour Dough Bread
+Double Chocolate,Go Extreme!,Waffles,
+Hot Double Chocolate w/ Marshmellow,Chocolate Covered Espresso Beans,Waffles,Blueberries
+Hot Double Chocolate w/ Marshmellow,,,`;
+
+  /* ============ App state ============ */
+  let state = { transactions: [], rules: [], frequent: [], lastRun: null, sort: 'lift', query: '', favorites: new Set() };
+
+  /* ============ DOM refs ============ */
+  const $ = id => document.getElementById(id);
+  const dropzone = $('dropzone'), fileInput = $('fileInput'), fileName = $('fileName');
+  const browseBtn = $('browseBtn'), sampleBtn = $('sampleBtn'), ctaSample = $('ctaSample'), ctaUpload = $('ctaUpload');
+  const runBtn = $('runBtn'), supRange = $('supRange'), confRange = $('confRange'), liftRange = $('liftRange');
+  const supVal = $('supVal'), confVal = $('confVal'), liftVal = $('liftVal');
+  const statsArea = $('statsArea'), rulesArea = $('rulesArea');
+  const searchInput = $('searchInput'), sortFilters = $('sortFilters');
+  const navToggle = $('navToggle'), navLinks = document.querySelector('.nav-links');
+
+  /* ============ Slider labels ============ */
+  function syncSliderLabels(){
+    supVal.textContent = parseFloat(supRange.value).toFixed(2);
+    confVal.textContent = parseFloat(confRange.value).toFixed(2);
+    liftVal.textContent = parseFloat(liftRange.value).toFixed(2);
+  }
+  [supRange, confRange, liftRange].forEach(r => r.addEventListener('input', () => {
+    syncSliderLabels();
+    if (state.transactions.length) recompute();
+  }));
+  syncSliderLabels();
+
+  /* ============ File handling ============ */
+  function loadCSVText(text, label){
+    const { transactions } = buildTransactions(text);
+    if (!transactions.length){
+      fileName.textContent = '⚠ Could not read any rows from that file.';
+      return;
+    }
+    state.transactions = transactions;
+    fileName.textContent = `✓ ${label} — ${transactions.length} orders loaded`;
+    runBtn.disabled = false;
+    recompute();
+    document.getElementById('ledger').scrollIntoView({ behavior:'smooth', block:'start' });
+  }
+
+  // Some till exports are saved as Latin-1/Windows-1252 (accented characters like
+  // "Café" land on a single high byte). Read as UTF-8 first; if that produced
+  // replacement characters, re-read as Latin-1 instead.
+  function readFileSmart(file, callback){
+    const reader = new FileReader();
+    reader.onload = ev => {
+      const text = ev.target.result;
+      if (text.indexOf('\uFFFD') !== -1){
+        const retry = new FileReader();
+        retry.onload = ev2 => callback(ev2.target.result, file.name);
+        retry.readAsText(file, 'ISO-8859-1');
+      } else {
+        callback(text, file.name);
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  browseBtn.addEventListener('click', () => fileInput.click());
+  ctaUpload.addEventListener('click', () => { document.getElementById('brew').scrollIntoView({behavior:'smooth'}); fileInput.click(); });
+  fileInput.addEventListener('change', e => {
+    const file = e.target.files[0];
+    if (!file) return;
+    readFileSmart(file, loadCSVText);
+  });
+
+  ['dragenter','dragover'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag'); }));
+  ['dragleave','drop'].forEach(evt => dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag'); }));
+  dropzone.addEventListener('drop', e => {
+    const file = e.dataTransfer.files[0];
+    if (!file) return;
+    readFileSmart(file, loadCSVText);
+  });
+
+  function useSample(){ loadCSVText(SAMPLE_CSV, 'CoffeeBeanAndTeaLeafCoffeeShopData1.csv'); }
+  sampleBtn.addEventListener('click', useSample);
+  ctaSample.addEventListener('click', useSample);
+
+  /* ============ Compute & render ============ */
+  function recompute(){
+    if (!state.transactions.length) return;
+    rulesArea.innerHTML = `<div class="loading-row"><span class="spinner"></span> brewing the rules…</div>`;
+    setTimeout(() => {
+      const minSupport = parseFloat(supRange.value);
+      const minConfidence = parseFloat(confRange.value);
+      const minLift = parseFloat(liftRange.value);
+      const { frequentItemsets, rules } = runApriori(state.transactions, minSupport, minConfidence, minLift, 3);
+      state.frequent = frequentItemsets;
+      state.rules = rules;
+      renderStats();
+      renderRules();
+    }, 60);
+  }
+  runBtn.addEventListener('click', recompute);
+
+  function uniqueItemCount(){
+    const s = new Set();
+    state.transactions.forEach(t => t.forEach(it => s.add(it)));
+    return s.size;
+  }
+
+  function renderStats(){
+    const n = state.transactions.length;
+    const items = uniqueItemCount();
+    const ruleCount = state.rules.length;
+    const topLift = ruleCount ? state.rules[0].lift.toFixed(2) : '—';
+    statsArea.innerHTML = `
+      <div class="stats-receipt">
+        <div class="r-title">REGISTER SUMMARY</div>
+        <div class="r-sub">printed just now</div>
+        <div class="stat-line"><span class="label">Transactions</span><span class="leader"></span><span class="value">${n}</span></div>
+        <div class="stat-line"><span class="label">Unique items</span><span class="leader"></span><span class="value">${items}</span></div>
+        <div class="stat-line"><span class="label">Rules brewed</span><span class="leader"></span><span class="value">${ruleCount}</span></div>
+        <div class="stat-line"><span class="label">Strongest lift</span><span class="leader"></span><span class="value">${topLift}×</span></div>
+      </div>`;
+  }
+
+  function fmtPct(v){ return (v*100).toFixed(1) + '%'; }
+
+  function renderRules(){
+    let list = state.rules.slice();
+    if (state.query){
+      const q = state.query.toLowerCase();
+      list = list.filter(r =>
+        r.antecedent.some(it => it.toLowerCase().includes(q)) ||
+        r.consequent.some(it => it.toLowerCase().includes(q))
+      );
+    }
+    list.sort((a,b) => b[state.sort] - a[state.sort]);
+    list = list.slice(0, 30);
+
+    if (!list.length){
+      rulesArea.innerHTML = `
+        <div class="empty">
+          <div class="icon">🧾</div>
+          <h3>No rules match the till</h3>
+          <p>Try loosening the brewing strength, or clear the search.</p>
+        </div>`;
+      return;
+    }
+
+    rulesArea.innerHTML = `<div class="ticket-grid">${list.map((r,i) => ticketHTML(r,i)).join('')}</div>`;
+
+    rulesArea.querySelectorAll('.fav-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.key;
+        if (state.favorites.has(key)){ state.favorites.delete(key); btn.classList.remove('active'); btn.textContent='♡'; }
+        else { state.favorites.add(key); btn.classList.add('active'); btn.textContent='♥'; }
+      });
+    });
+  }
+
+  function ticketHTML(r, i){
+    const key = r.antecedent.join('+') + '>' + r.consequent.join('+');
+    const isFav = state.favorites.has(key);
+    const strong = r.lift >= 2;
+    const no = String(i+1).padStart(3,'0');
+    return `
+      <article class="ticket">
+        <div class="perf"></div>
+        <div class="ticket-body">
+          <div class="ticket-head">
+            <span class="ticket-no">SLIP NO. ${no}</span>
+            <button class="fav-btn ${isFav?'active':''}" data-key="${key}" aria-label="Mark favorite">${isFav?'♥':'♡'}</button>
+          </div>
+          <div class="rule-line">${r.antecedent.join(', ')} <span class="arrow">→</span> ${r.consequent.join(', ')}</div>
+          <div class="rule-sub">often ordered together</div>
+          <div class="divider"></div>
+          <div class="metric-row">
+            <div class="metric"><div class="m-val">${fmtPct(r.support)}</div><div class="m-lab">Support</div></div>
+            <div class="metric"><div class="m-val">${fmtPct(r.confidence)}</div><div class="m-lab">Confidence</div></div>
+            <div class="metric"><div class="m-val">${r.lift.toFixed(2)}×</div><div class="m-lab">Lift</div></div>
+          </div>
+        </div>
+        <div class="barcode"></div>
+        <div class="perf"></div>
+        ${strong ? '<div class="stamp">STRONG PAIR</div>' : ''}
+      </article>`;
+  }
+
+  searchInput.addEventListener('input', e => { state.query = e.target.value.trim(); renderRules(); });
+
+  sortFilters.addEventListener('click', e => {
+    const btn = e.target.closest('.chip');
+    if (!btn) return;
+    sortFilters.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+    btn.classList.add('active');
+    state.sort = btn.dataset.sort;
+    renderRules();
+  });
+
+  navToggle.addEventListener('click', () => {
+    navLinks.classList.toggle('open');
+  });
+})();
+</script>
+</body>
+</html>
