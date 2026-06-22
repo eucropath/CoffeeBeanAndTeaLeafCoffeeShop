@@ -231,8 +231,7 @@
   .param-row{ display:flex; flex-direction:column; gap:6px; }
   .param-row label{ display:flex; justify-content:space-between; font-size:13px; font-weight:500; color:var(--ink-soft); }
   .param-row label span.val{ font-family:var(--mono); color:var(--coffee); font-weight:700; }
-  input[type=range]{
-    -webkit-appearance:none; width:100%; height:3px; background:var(--line); border-radius:2px; outline:none;
+  input[type=range]{-webkit-appearance:none; width:100%; height:3px; background:var(--line); border-radius:2px; outline:none;
   }
   input[type=range]::-webkit-slider-thumb{
     -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
@@ -266,6 +265,108 @@
   .stat-line .label{ color:var(--ink-soft); white-space:nowrap; }
   .stat-line .leader{ flex:1; border-bottom:1px dotted var(--line); transform:translateY(-3px); }
   .stat-line .value{ font-weight:700; color:var(--coffee); white-space:nowrap; font-size:15px; }
+
+  .dashboard-grid{
+    display:grid;
+    grid-template-columns:repeat(4, minmax(0, 1fr));
+    gap:18px;
+    margin-bottom:22px;
+  }
+  .data-card{
+    background:var(--receipt);
+    border-radius:var(--radius-lg);
+    border:1px solid rgba(35,30,26,0.08);
+    box-shadow:var(--shadow-card);
+    padding:22px 20px;
+    min-height:132px;
+  }
+  .data-card .card-label{
+    font-family:var(--body);
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:10px;
+  }
+  .data-card .card-value{
+    font-family:var(--display);
+    font-size:2rem;
+    line-height:1;
+    color:var(--coffee);
+  }
+  .table-preview{
+    background:var(--receipt);
+    border-radius:var(--radius-lg);
+    border:1px solid rgba(35,30,26,0.08);
+    box-shadow:var(--shadow-card);
+    padding:22px 18px 20px;
+  }
+  .table-meta{
+    display:flex;
+    align-items:flex-end;
+    justify-content:space-between;
+    flex-wrap:wrap;
+    gap:12px;
+    margin-bottom:16px;
+  }
+  .table-title{
+    font-family:var(--display);
+    font-size:20px;
+    color:var(--coffee);
+    margin:0;
+  }
+  .table-note{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--ink-soft);
+  }
+  .top-items{
+    display:flex;
+    flex-wrap:wrap;
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .item-pill{
+    background:rgba(193,103,43,0.12);
+    color:var(--cinnamon-dark);
+    border-radius:999px;
+    padding:8px 12px;
+    font-family:var(--body);
+    font-size:12px;
+    font-weight:600;
+  }
+  .table-scroll{
+    overflow:auto;
+    max-height:420px;
+    border-radius:12px;
+  }
+  .data-table{
+    width:100%;
+    border-collapse:collapse;
+    min-width:720px;
+  }
+  .data-table th,
+  .data-table td{
+    padding:12px 14px;
+    text-align:left;
+    border-bottom:1px solid rgba(35,30,26,0.08);
+    vertical-align:top;
+    font-size:13px;
+  }
+  .data-table th{
+    font-family:var(--display-alt);
+    font-size:12px;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--coffee);
+    background:rgba(234,217,181,0.28);
+    position:sticky;
+    top:0;
+    z-index:1;
+  }
+  .data-table tbody tr:nth-child(odd){ background:rgba(74,55,40,0.03); }
+  .data-table td{ color:var(--ink); }
+  .data-table td:first-child{ font-weight:600; color:var(--coffee); }
 
   /* ---------- Search + filters ---------- */
   .toolbar{
@@ -380,6 +481,8 @@
     .upload-grid{ grid-template-columns:1fr; }
     .dropzone{ border-right:none; border-bottom:1px dashed var(--line); }
     .ticket-grid{ grid-template-columns:repeat(2,1fr); }
+    .dashboard-grid{ grid-template-columns:repeat(2, minmax(0, 1fr)); }
+    .data-table{ min-width:unset; }
   }
   @media (max-width:640px){
     .nav-links{ display:none; }
@@ -388,6 +491,8 @@
     .hero{ padding:130px 0 80px; }
     .toolbar{ flex-direction:column; align-items:stretch; }
     .filters{ justify-content:flex-start; }
+    .dashboard-grid{ grid-template-columns:1fr; }
+    .table-scroll{ max-height:260px; }
   }
 </style>
 </head>
@@ -398,7 +503,7 @@
     <a href="#top" class="logo"><span class="dot"></span>The Apriori Counter</a>
     <ul class="nav-links">
       <li><a href="#brew">Brew</a></li>
-      <li><a href="#ledger">Ledger</a></li>
+      <li><a href="#dashboard">Dashboard</a></li>
       <li><a href="#rules">Rules</a></li>
     </ul>
     <button class="btn btn-outline btn-sm nav-toggle" id="navToggle">Menu</button>
@@ -477,6 +582,25 @@
           <div class="stat-line"><span class="label">Unique items</span><span class="leader"></span><span class="value">—</span></div>
           <div class="stat-line"><span class="label">Rules brewed</span><span class="leader"></span><span class="value">—</span></div>
           <div class="stat-line"><span class="label">Strongest lift</span><span class="leader"></span><span class="value">—</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="dashboard">
+    <div class="wrap">
+      <div class="section-head">
+        <div class="eyebrow">Step 02 — Data dashboard</div>
+        <h2>Inspect your ledger</h2>
+        <p>Preview the imported dataset, explore top items, and verify the ledger before the Apriori engine brews any rules.</p>
+      </div>
+      <div class="panel">
+        <div id="dashboardArea">
+          <div class="empty">
+            <div class="icon">📊</div>
+            <h3>Dashboard waiting for a file</h3>
+            <p>Upload a CSV or use the sample dataset to see order details, column headers, and every loaded transaction.</p>
+          </div>
         </div>
       </div>
     </div>
@@ -627,13 +751,14 @@
 
   function buildTransactions(csvText){
     const rows = parseCSV(csvText);
-    if (rows.length < 2) return { transactions: [], headers: [] };
+    if (rows.length < 2) return { transactions: [], headers: [], rows: [] };
     const headers = rows[0].map(h => h.trim());
+    const dataRows = rows.slice(1).map(row => headers.map((col, idx) => String(row[idx] ?? '').trim()));
     const transactions = [];
-    for (let r=1; r<rows.length; r++){
+    for (let r=0; r<dataRows.length; r++){
       const items = [];
       headers.forEach((col, idx) => {
-        const raw = rows[r][idx];
+        const raw = dataRows[r][idx];
         if (raw !== undefined && raw !== null && String(raw).trim() !== ''){
           if (col.toLowerCase().includes('addon')){
             String(raw).split(',').forEach(p => { const t = p.trim(); if (t) items.push(t); });
@@ -644,7 +769,7 @@
       });
       if (items.length) transactions.push(items);
     }
-    return { transactions, headers };
+    return { transactions, headers, rows: dataRows };
   }
 
   /* ============ Sample till ============ */
@@ -845,7 +970,7 @@ Hot Double Chocolate w/ Marshmellow,Chocolate Covered Espresso Beans,Waffles,Blu
 Hot Double Chocolate w/ Marshmellow,,,`;
 
   /* ============ App state ============ */
-  let state = { transactions: [], rules: [], frequent: [], lastRun: null, sort: 'lift', query: '', favorites: new Set() };
+  let state = { transactions: [], headers: [], rows: [], rules: [], frequent: [], lastRun: null, sort: 'lift', query: '', favorites: new Set() };
 
   /* ============ DOM refs ============ */
   const $ = id => document.getElementById(id);
@@ -853,7 +978,7 @@ Hot Double Chocolate w/ Marshmellow,,,`;
   const browseBtn = $('browseBtn'), sampleBtn = $('sampleBtn'), ctaSample = $('ctaSample'), ctaUpload = $('ctaUpload');
   const runBtn = $('runBtn'), supRange = $('supRange'), confRange = $('confRange'), liftRange = $('liftRange');
   const supVal = $('supVal'), confVal = $('confVal'), liftVal = $('liftVal');
-  const statsArea = $('statsArea'), rulesArea = $('rulesArea');
+  const statsArea = $('statsArea'), rulesArea = $('rulesArea'), dashboardArea = $('dashboardArea');
   const searchInput = $('searchInput'), sortFilters = $('sortFilters');
   const navToggle = $('navToggle'), navLinks = document.querySelector('.nav-links');
 
@@ -871,16 +996,18 @@ Hot Double Chocolate w/ Marshmellow,,,`;
 
   /* ============ File handling ============ */
   function loadCSVText(text, label){
-    const { transactions } = buildTransactions(text);
+    const { transactions, headers, rows } = buildTransactions(text);
     if (!transactions.length){
       fileName.textContent = '⚠ Could not read any rows from that file.';
       return;
     }
     state.transactions = transactions;
+    state.headers = headers;
+    state.rows = rows;
     fileName.textContent = `✓ ${label} — ${transactions.length} orders loaded`;
     runBtn.disabled = false;
     recompute();
-    document.getElementById('ledger').scrollIntoView({ behavior:'smooth', block:'start' });
+    document.getElementById('dashboard').scrollIntoView({ behavior:'smooth', block:'start' });
   }
 
   // Some till exports are saved as Latin-1/Windows-1252 (accented characters like
@@ -933,6 +1060,7 @@ Hot Double Chocolate w/ Marshmellow,,,`;
       state.frequent = frequentItemsets;
       state.rules = rules;
       renderStats();
+      renderDashboard();
       renderRules();
     }, 60);
   }
@@ -957,6 +1085,57 @@ Hot Double Chocolate w/ Marshmellow,,,`;
         <div class="stat-line"><span class="label">Unique items</span><span class="leader"></span><span class="value">${items}</span></div>
         <div class="stat-line"><span class="label">Rules brewed</span><span class="leader"></span><span class="value">${ruleCount}</span></div>
         <div class="stat-line"><span class="label">Strongest lift</span><span class="leader"></span><span class="value">${topLift}×</span></div>
+      </div>`;
+  }
+
+  function getItemFrequency(){
+    const freq = new Map();
+    state.transactions.forEach(t => t.forEach(item => freq.set(item, (freq.get(item)||0)+1)));
+    return Array.from(freq.entries())
+      .sort((a,b) => b[1] - a[1])
+      .map(([name,count]) => ({ name, count }));
+  }
+
+  function renderDashboard(){
+    if (!state.transactions.length){
+      dashboardArea.innerHTML = `
+        <div class="empty">
+          <div class="icon">📊</div>
+          <h3>Dashboard waiting for a file</h3>
+          <p>Upload a CSV or use the sample dataset to see order details, column headers, and every loaded transaction.</p>
+        </div>`;
+      return;
+    }
+
+    const total = state.transactions.length;
+    const averageItems = (state.transactions.reduce((sum,t) => sum + t.length, 0) / total).toFixed(2);
+    const topItems = getItemFrequency().slice(0, 6);
+
+    dashboardArea.innerHTML = `
+      <div class="dashboard-grid">
+        <div class="data-card"><div class="card-label">Loaded orders</div><div class="card-value">${total}</div></div>
+        <div class="data-card"><div class="card-label">Unique items</div><div class="card-value">${uniqueItemCount()}</div></div>
+        <div class="data-card"><div class="card-label">Avg. items / order</div><div class="card-value">${averageItems}</div></div>
+        <div class="data-card"><div class="card-label">Detected columns</div><div class="card-value">${state.headers.length}</div></div>
+      </div>
+      <div class="table-preview">
+        <div class="table-meta">
+          <div class="table-title">Ledger preview</div>
+          <div class="table-note">${state.rows.length} total orders · ${state.headers.length} columns loaded</div>
+        </div>
+        <div class="top-items">
+          ${topItems.map(item => `<span class="item-pill">${item.name} · ${item.count}</span>`).join('')}
+        </div>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr>${state.headers.map(h => `<th>${h || 'Column'}</th>`).join('')}</tr>
+            </thead>
+            <tbody>
+              ${state.rows.map(row => `<tr>${row.map(cell => `<td>${cell ? cell : '—'}</td>`).join('')}</tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
       </div>`;
   }
 
